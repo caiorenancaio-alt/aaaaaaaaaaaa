@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorteador de Prêmios do Bingo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --cor-fundo: #1a1a2e; --cor-caixa: #16213e; --cor-texto: #e94560;
+            --cor-texto-secundario: #f0f0f0; --cor-botao: #00f5d4; --cor-botao-texto: #16213e;
+            --sombra: rgba(0, 245, 212, 0.4); --cor-botao-secundario: #8d99ae;
+        }
+        body {
+            font-family: 'Poppins', sans-serif; background: var(--cor-fundo); color: var(--cor-texto-secundario);
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; margin: 0; padding: 20px;
+        }
+        .container {
+            background-color: var(--cor-caixa); padding: 30px; border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5); width: 100%; max-width: 600px;
+            text-align: center; border: 2px solid var(--cor-botao); position: relative;
+        }
+        h1 {
+            font-family: 'Montserrat', sans-serif; color: var(--cor-texto);
+            font-size: 2.5rem; margin-bottom: 20px;
+        }
+        .input-area { display: flex; gap: 10px; margin-bottom: 20px; }
+        #itemInput {
+            flex-grow: 1; padding: 12px; border: 1px solid #555;
+            border-radius: 6px; font-size: 16px; background-color: #333; color: white;
+        }
+        #itemInput:focus { outline: none; border-color: var(--cor-botao); }
+        button {
+            padding: 12px 20px; border: none; border-radius: 6px;
+            color: var(--cor-botao-texto); font-size: 16px; font-weight: 600;
+            cursor: pointer; transition: all 0.2s;
+        }
+        #addItemBtn { background-color: var(--cor-botao); }
+        #addItemBtn:hover { background-color: #9dfffa; transform: scale(1.05); }
+        
+        .action-buttons { display: flex; gap: 10px; margin-top: 20px; }
+        #sortBtn, #clearBtn { width: 100%; font-weight: bold; }
+        #sortBtn { background-color: #28a745; color: white; }
+        #sortBtn:hover { background-color: #218838; }
+        
+        #clearBtn { background-color: var(--cor-botao-secundario); display: none; }
+        #clearBtn:hover { background-color: #525f7f; }
+        .moderator-view #clearBtn { display: block; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #333; padding: 10px; text-align: left; }
+        th { background-color: rgba(0,0,0,0.2); color: var(--cor-botao); }
+        td { word-break: break-word; }
+
+        .action-cell, .action-header { display: none; }
+        .moderator-view .action-cell, .moderator-view .action-header {
+             width: 40px; text-align: center !important; display: table-cell;
+        }
+        
+        .delete-btn {
+            background: none; border: none; font-size: 1.2rem; cursor: pointer;
+            color: var(--cor-texto); padding: 0; opacity: 0.7;
+        }
+        .delete-btn:hover { opacity: 1; transform: scale(1.2); }
+
+        #resultArea {
+            margin-top: 25px; font-size: 24px; font-weight: bold;
+            color: #28a745; min-height: 30px;
+        }
+
+        .moderator-btn {
+            position: absolute; top: 10px; right: 10px; background: none; border: 1px solid var(--cor-texto);
+            color: var(--cor-texto); padding: 5px 10px; font-size: 0.7rem; border-radius: 5px;
+            cursor: pointer; opacity: 0.5; transition: all 0.3s;
+        }
+        .moderator-btn:hover { opacity: 1; }
+        .moderator-btn.moderator-active { opacity: 1; color: var(--cor-botao); border-color: var(--cor-botao); }
+
+        .highlight-roulette { background-color: var(--sombra) !important; transition: background-color 0.05s ease-in-out; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button id="moderatorBtn" class="moderator-btn">Modo Moderador</button>
+        <h1>Sorteador de Prêmios</h1>
+
+        <div class="input-area">
+            <input type="text" id="itemInput" placeholder="Digite o prêmio aqui...">
+            <button id="addItemBtn">Adicionar</button>
+        </div>
+
+        <table id="itemsTable">
+            <thead>
+                <tr>
+                    <th>Prêmios Disponíveis</th>
+                    <th class="action-header">Apagar</th>
+                </tr>
+            </thead>
+            <tbody id="itemList"></tbody>
+        </table>
+
+        <div class="action-buttons">
+            <button id="clearBtn">Limpar Lista</button>
+            <button id="sortBtn">Sortear!</button>
+        </div>
+
+        <div id="resultArea"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // URL DA SUA PLANILHA CORRETA
+            const SHEETDB_URL = 'https://sheetdb.io/api/v1/5kta5om1tc06i';
+            
+            let itemsParaSortear = [];
+            let isModerator = false;
+
+            const itemInput = document.getElementById('itemInput');
+            const addItemBtn = document.getElementById('addItemBtn');
+            const itemList = document.getElementById('itemList');
+            const sortBtn = document.getElementById('sortBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const resultArea = document.getElementById('resultArea');
+            const moderatorBtn = document.getElementById('moderatorBtn');
+            const container = document.querySelector('.container');
+
+            function atualizarUIVisibilidade() {
+                if (isModerator) {
+                    container.classList.add('moderator-view');
+                    moderatorBtn.classList.add('moderator-active');
+                    moderatorBtn.textContent = 'Moderador (ON)';
+                    itemInput.disabled = false;
+                    addItemBtn.disabled = false;
+                    itemInput.placeholder = 'Digite o prêmio aqui...';
+                } else {
+                    container.classList.remove('moderator-view');
+                    moderatorBtn.classList.remove('moderator-active');
+                    moderatorBtn.textContent = 'Modo Moderador';
+                    itemInput.disabled = true;
+                    addItemBtn.disabled = true;
+                    itemInput.placeholder = 'Ative o Modo Moderador para adicionar';
+                }
+                renderTable();
+            }
+            
+            async function fetchPrizes() {
+                try {
+                    const response = await fetch(SHEETDB_URL);
+                    if (!response.ok) throw new Error('Falha ao carregar a lista.');
+                    const data = await response.json();
+                    itemsParaSortear = data.map(item => item.premio).filter(p => p); // Pega a coluna 'premio' e filtra vazios
+                    renderTable();
+                } catch(error){
+                    console.error("Erro ao buscar prêmios:", error);
+                    itemList.innerHTML = `<tr><td colspan="2">Erro ao carregar a lista.</td></tr>`;
+                }
+            }
+
+            function renderTable() {
+                itemList.innerHTML = '';
+                const colunas = isModerator ? 2 : 1;
+                if (itemsParaSortear.length === 0) {
+                    itemList.innerHTML = `<tr><td colspan="${colunas}">Nenhum prêmio na lista ainda.</td></tr>`;
+                    return;
+                }
+                itemsParaSortear.forEach((item) => {
+                    const tr = document.createElement('tr');
+                    const tdItem = document.createElement('td');
+                    tdItem.textContent = item;
+                    tr.appendChild(tdItem);
+
+                    if (isModerator) {
+                        const tdAction = document.createElement('td');
+                        tdAction.classList.add('action-cell');
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.textContent = '🗑️';
+                        deleteBtn.classList.add('delete-btn');
+                        deleteBtn.onclick = () => apagarItem(item);
+                        tdAction.appendChild(deleteBtn);
+                        tr.appendChild(tdAction);
+                    }
+                    itemList.appendChild(tr);
+                });
+            }
+
+            async function adicionarItem() {
+                if(!isModerator) return;
+                const novoItem = itemInput.value.trim();
+                if (novoItem) {
+                    itemInput.disabled = true; addItemBtn.disabled = true;
+                    await fetch(SHEETDB_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ data: [{'premio': novoItem}] })
+                    });
+                    itemInput.value = '';
+                    await fetchPrizes();
+                    itemInput.disabled = false; addItemBtn.disabled = false;
+                    itemInput.focus();
+                } else {
+                    alert('Por favor, digite algo antes de adicionar!');
+                }
+            }
+            
+            async function apagarItem(item) {
+                if (!isModerator || !confirm(`Tem certeza que deseja apagar o prêmio "${item}"?`)) return;
+                const encodedItem = encodeURIComponent(item);
+                await fetch(`${SHEETDB_URL}/premio/${encodedItem}`, { method: 'DELETE' });
+                await fetchPrizes();
+            }
+
+            async function limparLista() {
+                if (!isModerator || !confirm('Tem certeza que deseja apagar TODOS os prêmios da lista?')) return;
+                await fetch(`${SHEETDB_URL}/all`, { method: 'DELETE' });
+                resultArea.textContent = '';
+                await fetchPrizes();
+            }
+            
+            async function realizarSorteio() {
+                if (itemsParaSortear.length === 0) {
+                    alert('Não há prêmios para sortear!');
+                    return;
+                }
+                sortBtn.disabled = true;
+                resultArea.textContent = 'Sorteando...';
+                
+                const tableRows = itemList.querySelectorAll('tr');
+                let animationInterval = setInterval(() => {
+                    tableRows.forEach(row => row.classList.remove('highlight-roulette'));
+                    const randomIndex = Math.floor(Math.random() * tableRows.length);
+                    if (tableRows[randomIndex]) {
+                        tableRows[randomIndex].classList.add('highlight-roulette');
+                    }
+                }, 100);
+
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                clearInterval(animationInterval);
+                tableRows.forEach(row => row.classList.remove('highlight-roulette'));
+                
+                const indiceSorteado = Math.floor(Math.random() * itemsParaSortear.length);
+                const itemVencedor = itemsParaSortear[indiceSorteado];
+                
+                resultArea.textContent = `🎉 O prêmio é: ${itemVencedor} 🎉`;
+                
+                // Apaga apenas o item vencedor após o sorteio
+                if (isModerator) {
+                    await apagarItem(itemVencedor);
+                } else {
+                    // Se não for moderador, o convidado não pode apagar,
+                    // mas podemos simular a remoção para a próxima rodada
+                    // Neste caso, a melhor abordagem é deixar o moderador apagar.
+                    // Vamos apenas recarregar a lista. O moderador apaga quando vir o resultado.
+                    await fetchPrizes();
+                }
+
+                sortBtn.disabled = false;
+            }
+
+            moderatorBtn.addEventListener('click', () => {
+                if (isModerator) {
+                    isModerator = false;
+                    alert("Modo moderador desativado.");
+                } else {
+                    const password = prompt("Digite a senha do moderador:");
+                    if (password === "antoniopenha") {
+                        isModerator = true;
+                        alert("Modo moderador ativado!");
+                    } else if (password !== null) {
+                        alert("Senha incorreta.");
+                    }
+                }
+                atualizarUIVisibilidade();
+            });
+
+            addItemBtn.addEventListener('click', adicionarItem);
+            itemInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') adicionarItem(); });
+            sortBtn.addEventListener('click', realizarSorteio);
+            clearBtn.addEventListener('click', limparLista);
+            
+            // --- INICIALIZAÇÃO ---
+            atualizarUIVisibilidade();
+            fetchPrizes();
+
+            // Atualiza a lista a cada 10 segundos para manter todos sincronizados
+            setInterval(fetchPrizes, 10000);
+        });
+    </script>
+</body>
+</html>
