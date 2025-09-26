@@ -114,7 +114,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // URL DA SUA PLANILHA CORRETA
-            const SHEETDB_URL = 'https://sheetdb.io/api/v1/5kta5om1tc06i';
+            const SHEETDB_URL = 'https://sheetdb.io/api/v1/ldcc2bmvd6a1x';
             
             let itemsParaSortear = [];
             let isModerator = false;
